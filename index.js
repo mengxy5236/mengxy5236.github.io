@@ -3,10 +3,10 @@ const musicConfig = {
   selected: null,
   volume: 0.5
 };
-
+let startScreen; 
 document.addEventListener("DOMContentLoaded", () => {
   // 获取所有需要的DOM元素
-  const startScreen = document.getElementById("start-screen");
+  startScreen = document.getElementById("start-screen");
   const rulesScreen = document.getElementById("rules-screen");
   const gameScreen = document.getElementById("game-screen");
   const resultScreen = document.getElementById("result-screen");
@@ -181,8 +181,7 @@ function initBackgroundMusic() {
 
     // 添加排行榜返回按钮事件
     document.getElementById('leaderboard-back-btn').addEventListener('click', () => {
-      const startScreen = document.getElementById("start-screen");
-      showScreen(startScreen);
+      showScreen(startScreen); // 现在可以正确访问startScreen
     });
 
   }
@@ -430,31 +429,61 @@ function initBackgroundMusic() {
   
 let currentUsername = null;
 
-// 新增函数：显示排行榜
 async function showLeaderboard() {
-  const container = document.querySelector('.leaderboard-list');
-  container.innerHTML = '<div class="loading-text">加载中...</div>';
+  const requestOptions = {
+    method: 'GET',
+    redirect: 'follow'
+  };
 
   try {
-    const response = await fetch('/api/leaderboard');
-    const { data } = await response.json();
+    const response = await fetch("http://main.vastsea.cc:41895/scores/leaderboard", requestOptions);
+    const result = await response.json(); // 返回JSON数据
     
-    container.innerHTML = data.length > 0 ? '' : '<div class="no-data">暂无记录</div>';
-    
-    data.forEach((item, index) => {
-      const itemDiv = document.createElement('div');
-      itemDiv.className = 'music-option leaderboard-item';
-      itemDiv.innerHTML = `
-        <span class="leaderboard-rank">${index + 1}</span>
-        <span class="leaderboard-name">${escapeHtml(item.username)}</span>
-        <span class="leaderboard-score">${item.score}次</span>
-      `;
-      container.appendChild(itemDiv);
-    });
-  } catch (err) {
-    container.innerHTML = '<div class="error-text">数据加载失败</div>';
+    // 渲染排行榜
+    const container = document.querySelector('.leaderboard-list');
+    container.innerHTML = result.map(item => `
+      <div class="leaderboard-item">
+        <span>${item.userName}</span>
+        <span>${item.score}分</span>
+      </div>
+    `).join('');
+  } catch (error) {
+    console.error('加载排行榜失败:', error);
   }
 }
+
+async function submitScore(score) {
+  // 从弹窗获取用户名（保留你原有的交互逻辑）
+  const username = prompt('请输入你的名字（最多20字）:', '匿名玩家') || '匿名玩家';
+  
+  // 使用新API格式
+  const myHeaders = new Headers();
+  myHeaders.append("Content-Type", "application/json");
+
+  const raw = JSON.stringify({
+    "userName": username.substring(0, 20), // 确保用户名不超过20字
+    "score": parseInt(score) || 0          // 确保分数是数字
+  });
+
+  const requestOptions = {
+    method: 'POST',
+    headers: myHeaders,
+    body: raw,
+    redirect: 'follow'
+  };
+
+  try {
+    const response = await fetch("http://main.vastsea.cc:41895/scores", requestOptions);
+    const result = await response.json(); // 根据实际返回格式选择.text()或.json()
+    console.log('提交成功:', result);
+    return { success: true, data: result };
+  } catch (error) {
+    console.error('提交失败:', error);
+    return { success: false };
+  }
+}
+
+
   // 结束游戏
   async function endGame(won) {
     clearInterval(gameInterval);
@@ -494,21 +523,20 @@ async function showLeaderboard() {
       initializeJoker();
     }, 3000);
 
-    // 提交分数
-  if(hits_count > 0) {
-    const username = prompt('请输入你的名字（最多20字）:', '匿名玩家') || '匿名玩家';
-    try {
-      await fetch('/api/score', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, score: hits_count })
-      });
-      showLeaderboard(); // 刷新排行榜
-    } catch (err) {
-      console.error('分数提交失败:', err);
+// 提交分数并显示结果
+showScreen(resultScreen);
+
+if (hits_count > 0) {
+  const username = prompt('请输入你的名字（最多20字）:', '匿名玩家') || '匿名玩家';
+  try {
+    const data = await submitScore(hits_count); // 使用已定义的 submitScore 函数
+    if (data.success) {
+      await showLeaderboard(); // 提交成功后刷新排行榜
     }
+  } catch (err) {
+    console.error('分数提交失败:', err);
   }
-  showScreen(resultScreen);
+}
 
   setTimeout(async () => {
     showScreen(document.getElementById('leaderboard-screen'));

@@ -131,7 +131,8 @@ body {
 .leaderboard-item {
   background: rgba(255, 255, 255, 0.7);
   border: 2px solid #595959;
-  border-radius: 15px;
+  border-radius: 10px;
+  color: rgba(0, 0, 0, 0.9);
   padding: 1rem;
   margin: 0.5rem 0;
   display: flex;
